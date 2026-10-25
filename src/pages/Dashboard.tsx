@@ -1,32 +1,55 @@
+import { useMemo } from "react";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { TransactionOverview } from "@/components/dashboard/TransactionOverview";
 import { FraudDistribution } from "@/components/dashboard/FraudDistribution";
 import { MerchantFraudChart } from "@/components/dashboard/MerchantFraudChart";
 import { RiskDistribution } from "@/components/dashboard/RiskDistribution";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card } from "@/components/ui/card";
 import { ApiStatus } from "@/components/common/ApiStatus";
-import { DASHBOARD_STATS } from "@/lib/mockData";
+import { useTransactions, computeStats } from "@/hooks/useTransactions";
+import {
+  buildDailyOverview,
+  buildFraudDistribution,
+  buildMerchantFraud,
+  buildRiskDistribution,
+} from "@/lib/dashboardData";
 import {
   CreditCard,
   ShieldAlert,
   ShieldCheck,
   Percent,
+  Inbox,
 } from "lucide-react";
-import { useEffect, useState } from "react";
 
 export function Dashboard() {
-  const [loading, setLoading] = useState(true);
+  const { records, loading, error } = useTransactions();
 
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(t);
-  }, []);
+  const stats = useMemo(() => computeStats(records), [records]);
+  const overview = useMemo(() => buildDailyOverview(records), [records]);
+  const fraudDistribution = useMemo(
+    () => buildFraudDistribution(records),
+    [records]
+  );
+  const merchantFraud = useMemo(() => buildMerchantFraud(records), [records]);
+  const riskDistribution = useMemo(
+    () => buildRiskDistribution(records),
+    [records]
+  );
+
+  const hasData = records.length > 0;
 
   return (
     <div className="space-y-6">
       <div className="space-y-4">
         <ApiStatus />
       </div>
+
+      {error && (
+        <p className="text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {loading ? (
@@ -37,70 +60,69 @@ export function Dashboard() {
           <>
             <StatCard
               title="Total Transactions"
-              value={DASHBOARD_STATS.totalTransactions.toLocaleString()}
+              value={stats.total.toLocaleString()}
               icon={CreditCard}
-              trend="12.5%"
-              trendUp
               accent="primary"
             />
             <StatCard
               title="Fraud Detected"
-              value={DASHBOARD_STATS.fraudDetected.toLocaleString()}
+              value={stats.fraud.toLocaleString()}
               icon={ShieldAlert}
-              trend="3.2%"
-              trendUp
               accent="destructive"
             />
             <StatCard
               title="Legitimate Transactions"
-              value={DASHBOARD_STATS.legitimateTransactions.toLocaleString()}
+              value={stats.legitimate.toLocaleString()}
               icon={ShieldCheck}
-              trend="8.7%"
-              trendUp
               accent="success"
             />
             <StatCard
               title="Fraud Rate"
-              value={`${DASHBOARD_STATS.fraudRate.toFixed(1)}%`}
+              value={`${stats.fraudRate.toFixed(1)}%`}
               icon={Percent}
-              trend="0.4%"
-              trendUp={false}
               accent="warning"
             />
           </>
         )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          {loading ? (
+      {loading ? (
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
             <Skeleton className="h-[340px] w-full rounded-xl" />
-          ) : (
-            <TransactionOverview />
-          )}
+          </div>
+          <Skeleton className="h-[340px] w-full rounded-xl" />
         </div>
-        <div>
-          {loading ? (
-            <Skeleton className="h-[340px] w-full rounded-xl" />
-          ) : (
-            <FraudDistribution />
-          )}
-        </div>
-      </div>
+      ) : !hasData ? (
+        <Card className="glass-card flex flex-col items-center justify-center gap-3 border-border p-10 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+            <Inbox className="h-6 w-6 text-primary" />
+          </div>
+          <h3 className="text-base font-semibold text-foreground">
+            No Predictions Yet
+          </h3>
+          <p className="max-w-sm text-sm text-muted-foreground">
+            Analyze your first transaction in Transaction Analysis to see your
+            statistics and charts here.
+          </p>
+        </Card>
+      ) : (
+        <>
+          <div className="grid gap-4 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <TransactionOverview data={overview} />
+            </div>
+            <div>
+              <FraudDistribution data={fraudDistribution} />
+            </div>
+          </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        {loading ? (
-          <>
-            <Skeleton className="h-[340px] w-full rounded-xl" />
-            <Skeleton className="h-[340px] w-full rounded-xl" />
-          </>
-        ) : (
-          <>
-            <MerchantFraudChart />
-            <RiskDistribution />
-          </>
-        )}
-      </div>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <MerchantFraudChart data={merchantFraud} />
+            <RiskDistribution data={riskDistribution} />
+          </div>
+        </>
+      )}
     </div>
   );
 }

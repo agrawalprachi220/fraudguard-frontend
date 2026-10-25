@@ -8,16 +8,14 @@ import {
   Tooltip,
   Cell,
 } from "recharts";
-import { MERCHANT_FRAUD } from "@/lib/mockData";
+import type { MerchantPoint } from "@/lib/dashboardData";
 import { Card } from "@/components/ui/card";
 
-export function MerchantFraudChart() {
-  const data = MERCHANT_FRAUD.map((d) => ({
-    category: d.category,
-    fraud: d.fraud,
-    rate: ((d.fraud / d.total) * 100).toFixed(1),
-  }));
+interface MerchantFraudChartProps {
+  data: MerchantPoint[];
+}
 
+export function MerchantFraudChart({ data }: MerchantFraudChartProps) {
   return (
     <Card className="glass-card border-border p-5">
       <div className="mb-4">
@@ -50,6 +48,7 @@ export function MerchantFraudChart() {
             fontSize={12}
             tickLine={false}
             axisLine={false}
+            allowDecimals={false}
           />
           <Tooltip
             contentStyle={{
@@ -63,9 +62,20 @@ export function MerchantFraudChart() {
           />
           <Bar dataKey="fraud" name="Fraud Count" radius={[4, 4, 0, 0]}>
             {data.map((_, i) => (
-              <Cell key={i} fill="hsl(0 72% 51%)" fillOpacity={0.7 + i * 0.03} />
+              <Cell
+                key={i}
+                fill="hsl(0 72% 51%)"
+                fillOpacity={0.7 + i * 0.03}
+              />
             ))}
           </Bar>
+          <Bar
+            dataKey="total"
+            name="Total Predictions"
+            radius={[4, 4, 0, 0]}
+            fill="hsl(199 89% 48%)"
+            fillOpacity={0.5}
+          />
         </BarChart>
       </ResponsiveContainer>
     </Card>

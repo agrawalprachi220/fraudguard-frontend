@@ -5,11 +5,15 @@ import {
   PolarAngleAxis,
   Cell,
 } from "recharts";
-import { RISK_DISTRIBUTION } from "@/lib/mockData";
+import type { DistributionSlice } from "@/lib/dashboardData";
 import { Card } from "@/components/ui/card";
 
-export function RiskDistribution() {
-  const total = RISK_DISTRIBUTION.reduce((s, d) => s + d.value, 0);
+interface RiskDistributionProps {
+  data: DistributionSlice[];
+}
+
+export function RiskDistribution({ data }: RiskDistributionProps) {
+  const total = data.reduce((s, d) => s + d.value, 0);
 
   return (
     <Card className="glass-card border-border p-5">
@@ -25,7 +29,7 @@ export function RiskDistribution() {
         <div className="relative h-[180px] w-[180px]">
           <ResponsiveContainer width="100%" height="100%">
             <RadialBarChart
-              data={RISK_DISTRIBUTION}
+              data={data}
               cx="50%"
               cy="50%"
               innerRadius="50%"
@@ -35,7 +39,7 @@ export function RiskDistribution() {
             >
               <PolarAngleAxis
                 type="number"
-                domain={[0, total]}
+                domain={[0, Math.max(total, 1)]}
                 angleAxisId={0}
                 tick={false}
               />
@@ -44,7 +48,7 @@ export function RiskDistribution() {
                 dataKey="value"
                 cornerRadius={6}
               >
-                {RISK_DISTRIBUTION.map((entry, i) => (
+                {data.map((entry, i) => (
                   <Cell key={i} fill={entry.color} />
                 ))}
               </RadialBar>
@@ -52,7 +56,7 @@ export function RiskDistribution() {
           </ResponsiveContainer>
         </div>
         <div className="flex-1 space-y-3">
-          {RISK_DISTRIBUTION.map((item) => (
+          {data.map((item) => (
             <div key={item.name} className="flex items-center gap-3">
               <span
                 className="h-3 w-3 rounded-full"
@@ -68,7 +72,8 @@ export function RiskDistribution() {
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {((item.value / total) * 100).toFixed(1)}% of total
+                  {total > 0 ? ((item.value / total) * 100).toFixed(1) : "0.0"}
+                  % of total
                 </p>
               </div>
             </div>

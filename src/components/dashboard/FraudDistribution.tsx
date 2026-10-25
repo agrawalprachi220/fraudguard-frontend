@@ -6,10 +6,14 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { FRAUD_DISTRIBUTION } from "@/lib/mockData";
+import type { DistributionSlice } from "@/lib/dashboardData";
 import { Card } from "@/components/ui/card";
 
-export function FraudDistribution() {
+interface FraudDistributionProps {
+  data: DistributionSlice[];
+}
+
+export function FraudDistribution({ data }: FraudDistributionProps) {
   return (
     <Card className="glass-card border-border p-5">
       <div className="mb-4">
@@ -23,7 +27,7 @@ export function FraudDistribution() {
       <ResponsiveContainer width="100%" height={280}>
         <PieChart>
           <Pie
-            data={FRAUD_DISTRIBUTION}
+            data={data}
             cx="50%"
             cy="50%"
             innerRadius={60}
@@ -32,7 +36,7 @@ export function FraudDistribution() {
             dataKey="value"
             stroke="none"
           >
-            {FRAUD_DISTRIBUTION.map((entry, i) => (
+            {data.map((entry, i) => (
               <Cell key={i} fill={entry.color} />
             ))}
           </Pie>

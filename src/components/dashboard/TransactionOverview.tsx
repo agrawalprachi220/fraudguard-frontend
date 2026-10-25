@@ -8,7 +8,7 @@ import {
   Tooltip,
   Legend,
 } from "recharts";
-import { TRANSACTION_OVERVIEW } from "@/lib/mockData";
+import type { OverviewPoint } from "@/lib/dashboardData";
 import { Card } from "@/components/ui/card";
 
 interface TooltipPayloadItem {
@@ -31,11 +31,7 @@ function CustomTooltip({
     <div className="rounded-lg border border-border bg-popover px-3 py-2 shadow-lg">
       <p className="mb-1 text-xs font-semibold text-foreground">{label}</p>
       {payload.map((item, i) => (
-        <p
-          key={i}
-          className="text-xs"
-          style={{ color: item.color }}
-        >
+        <p key={i} className="text-xs" style={{ color: item.color }}>
           {item.name}: {item.value.toLocaleString()}
         </p>
       ))}
@@ -43,7 +39,11 @@ function CustomTooltip({
   );
 }
 
-export function TransactionOverview() {
+interface TransactionOverviewProps {
+  data: OverviewPoint[];
+}
+
+export function TransactionOverview({ data }: TransactionOverviewProps) {
   return (
     <Card className="glass-card border-border p-5">
       <div className="mb-4 flex items-center justify-between">
@@ -52,12 +52,12 @@ export function TransactionOverview() {
             Transaction Overview
           </h3>
           <p className="text-sm text-muted-foreground">
-            Monthly transaction volume breakdown
+            Daily predictions breakdown
           </p>
         </div>
       </div>
       <ResponsiveContainer width="100%" height={280}>
-        <LineChart data={TRANSACTION_OVERVIEW}>
+        <LineChart data={data}>
           <CartesianGrid
             strokeDasharray="3 3"
             stroke="hsl(222 30% 16%)"
@@ -75,6 +75,7 @@ export function TransactionOverview() {
             fontSize={12}
             tickLine={false}
             axisLine={false}
+            allowDecimals={false}
           />
           <Tooltip content={<CustomTooltip />} />
           <Legend
