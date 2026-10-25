@@ -8,12 +8,12 @@ import {
   FileText,
   Settings,
   LogOut,
-  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ApiStatus } from "@/components/common/ApiStatus";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { useAuth } from "@/hooks/useAuth";
 
 export type PageId =
   | "dashboard"
@@ -44,7 +44,16 @@ interface SidebarProps {
   onLogout: () => void;
 }
 
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "U";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 export function Sidebar({ activePage, onNavigate, onLogout }: SidebarProps) {
+  const { displayName, email } = useAuth();
+
   return (
     <aside className="hidden h-screen w-64 shrink-0 flex-col border-r border-border bg-card/40 lg:flex">
       <div className="flex h-16 items-center gap-2.5 border-b border-border px-6">
@@ -97,17 +106,19 @@ export function Sidebar({ activePage, onNavigate, onLogout }: SidebarProps) {
         <div className="flex items-center gap-3 rounded-lg px-2 py-1">
           <Avatar className="h-9 w-9 border border-border">
             <AvatarFallback className="bg-primary/10 text-sm font-semibold text-primary">
-              AD
+              {getInitials(displayName)}
             </AvatarFallback>
           </Avatar>
-          <div className="flex-1 leading-tight">
-            <p className="text-sm font-medium text-foreground">Admin User</p>
-            <p className="text-xs text-muted-foreground">admin@fraudguard.ai</p>
+          <div className="min-w-0 flex-1 leading-tight">
+            <p className="truncate text-sm font-medium text-foreground">
+              {displayName}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">{email}</p>
           </div>
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
             onClick={onLogout}
             aria-label="Logout"
           >

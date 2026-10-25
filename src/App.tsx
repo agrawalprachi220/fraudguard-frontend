@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Sidebar, type PageId } from "@/components/layout/Sidebar";
@@ -11,34 +11,40 @@ import { PredictionHistory } from "@/pages/PredictionHistory";
 import { Analytics } from "@/pages/Analytics";
 import { Reports } from "@/pages/Reports";
 import { Settings } from "@/pages/Settings";
-
-const AUTH_KEY = "fraudguard_auth";
+import { useAuth } from "@/hooks/useAuth";
 
 function App() {
-  const [authed, setAuthed] = useState<boolean>(
-    () => sessionStorage.getItem(AUTH_KEY) === "true"
-  );
+  const { user, loading, signOut } = useAuth();
   const [page, setPage] = useState<PageId>("dashboard");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  useEffect(() => {
-    sessionStorage.setItem(AUTH_KEY, String(authed));
-  }, [authed]);
-
   function handleLogin() {
-    setAuthed(true);
     setPage("dashboard");
   }
 
-  function handleLogout() {
-    setAuthed(false);
+  async function handleLogout() {
+    await signOut();
+    setPage("dashboard");
   }
 
   function handleNavigate(p: PageId) {
     setPage(p);
   }
 
-  if (!authed) {
+  // Checking for an existing Supabase session (e.g. after a page refresh)
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div
+          className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent"
+          role="status"
+          aria-label="Loading"
+        />
+      </div>
+    );
+  }
+
+  if (!user) {
     return (
       <>
         <TooltipProvider>

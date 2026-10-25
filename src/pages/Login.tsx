@@ -4,44 +4,168 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { isSupabaseConfigured } from "@/services/supabase";
+import { isSupabaseConfigured, supabase } from "@/services/supabase";
 import {
   ShieldCheck,
   Lock,
   Mail,
+  User,
   ArrowRight,
   ShieldAlert,
   Activity,
   Eye,
   EyeOff,
+  CheckCircle2,
 } from "lucide-react";
 
 interface LoginPageProps {
   onLogin: () => void;
 }
 
+type Mode = "signin" | "signup";
+
+function friendlyError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("invalid login credentials")) {
+    return "Incorrect email or password.";
+  }
+  if (m.includes("email not confirmed")) {
+    return "Please confirm your email address first, then sign in.";
+  }
+  if (m.includes("already registered") || m.includes("already been registered")) {
+    return "An account with this email already exists. Please sign in.";
+  }
+  if (m.includes("password should be at least")) {
+    return "Password must be at least 6 characters.";
+  }
+  if (m.includes("rate limit")) {
+    return "Too many attempts. Please wait a few minutes and try again.";
+  }
+  if (m.includes("failed to fetch") || m.includes("network")) {
+    return "Unable to reach the authentication server. Check your internet connection.";
+  }
+  return "Something went wrong. Please try again.";
+}
+
 export function LoginPage({ onLogin }: LoginPageProps) {
+  const [mode, setMode] = useState<Mode>("signin");
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
+
+  const isSignup = mode === "signup";
+
+  function switchMode(next: Mode) {
+    setMode(next);
+    setError(null);
+    setInfo(null);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setInfo(null);
+
+    if (!supabase) {
+      setError(
+        "Authentication is not configured. Add the Supabase URL and key to the environment variables."
+      );
+      return;
+    }
 
     if (!email || !password) {
       setError("Please enter your email and password.");
       return;
     }
 
+    if (isSignup && password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+
     setLoading(true);
-    // Supabase auth integration point — when configured, use:
-    // const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    await new Promise((r) => setTimeout(r, 800));
-    setLoading(false);
-    onLogin();
+    try {
+      if (isSignup) {
+        const { data, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { full_name: fullName.trim() || email.split("@")[0] },
+          },
+        });
+
+        if (signUpError) {
+          setError(friendlyError(signUpError.message));
+          return;
+        }
+
+        // If email confirmation is off, Supabase returns a session right away.
+        if (data.session) {
+          onLogin();
+          return;
+        }
+
+        setInfo(
+          "Account created. Please check your email to confirm your address, then sign in."
+        );
+        setMode("signin");
+        setPassword("");
+      } else {
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (signInError) {
+          setError(friendlyError(signInError.message));
+          return;
+        }
+
+        onLogin();
+      }
+    } catch {
+      setError("Unable to reach the authentication server. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    setError(null);
+    setInfo(null);
+
+    if (!supabase) {
+      setError("Authentication is not configured.");
+      return;
+    }
+
+    if (!email) {
+      setError("Enter your email above, then click Forgot Password.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        email,
+        { redirectTo: window.location.origin }
+      );
+
+      if (resetError) {
+        setError(friendlyError(resetError.message));
+        return;
+      }
+
+      setInfo("Password reset link sent. Please check your email.");
+    } catch {
+      setError("Unable to send the reset email. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -117,23 +241,52 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
           <Card className="glass-card border-border p-6">
             <h2 className="text-xl font-bold tracking-tight text-foreground">
-              Welcome Back
+              {isSignup ? "Create Account" : "Welcome Back"}
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Sign in to access the fraud detection dashboard.
+              {isSignup
+                ? "Create an account to start analyzing transactions."
+                : "Sign in to access the fraud detection dashboard."}
             </p>
 
             {!isSupabaseConfigured && (
               <div className="mt-4 flex items-start gap-2 rounded-lg border border-warning/20 bg-warning/5 px-3 py-2.5">
                 <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
                 <p className="text-xs text-muted-foreground">
-                  Supabase is not configured. Authentication is in demo mode —
-                  any credentials will sign you in.
+                  Supabase is not configured. Add VITE_SUPABASE_URL and
+                  VITE_SUPABASE_PUBLISHABLE_KEY to enable sign in.
+                </p>
+              </div>
+            )}
+
+            {info && (
+              <div className="mt-4 flex items-start gap-2 rounded-lg border border-success/20 bg-success/5 px-3 py-2.5">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
+                <p className="text-xs text-muted-foreground" role="status">
+                  {info}
                 </p>
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+              {isSignup && (
+                <div className="space-y-2">
+                  <Label htmlFor="fullName">Full Name</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="fullName"
+                      type="text"
+                      placeholder="Your name"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="pl-9"
+                      autoComplete="name"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <div className="relative">
@@ -141,7 +294,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="admin@fraudguard.ai"
+                    placeholder="you@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="pl-9"
@@ -161,7 +314,7 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-9 pr-9"
-                    autoComplete="current-password"
+                    autoComplete={isSignup ? "new-password" : "current-password"}
                   />
                   <button
                     type="button"
@@ -184,14 +337,18 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 </p>
               )}
 
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  className="text-xs text-primary hover:underline"
-                >
-                  Forgot Password?
-                </button>
-              </div>
+              {!isSignup && (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    disabled={loading}
+                    className="text-xs text-primary hover:underline disabled:opacity-50"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+              )}
 
               <Button
                 type="submit"
@@ -199,10 +356,14 @@ export function LoginPage({ onLogin }: LoginPageProps) {
                 className="w-full bg-gradient-to-r from-primary to-accent text-white shadow-lg shadow-primary/20"
               >
                 {loading ? (
-                  "Signing in..."
+                  isSignup ? (
+                    "Creating account..."
+                  ) : (
+                    "Signing in..."
+                  )
                 ) : (
                   <>
-                    Sign In
+                    {isSignup ? "Create Account" : "Sign In"}
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </>
                 )}
@@ -211,8 +372,14 @@ export function LoginPage({ onLogin }: LoginPageProps) {
 
             <Separator className="my-5" />
 
-            <Button variant="outline" className="w-full">
-              Create Account
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              disabled={loading}
+              onClick={() => switchMode(isSignup ? "signin" : "signup")}
+            >
+              {isSignup ? "Back to Sign In" : "Create Account"}
             </Button>
           </Card>
 
