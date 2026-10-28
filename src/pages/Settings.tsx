@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,7 +8,13 @@ import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ApiStatus } from "@/components/common/ApiStatus";
 import { API_BASE_URL } from "@/services/api";
-import { isSupabaseConfigured } from "@/services/supabase";
+import { supabase } from "@/services/supabase";
+import { useAuth } from "@/hooks/useAuth";
+import { getInitials } from "@/lib/userUtils";
+import {
+  getNotificationsEnabled,
+  setNotificationsEnabled,
+} from "@/lib/preferences";
 import {
   User,
   Settings as SettingsIcon,
@@ -23,6 +30,83 @@ interface SettingsProps {
 }
 
 export function Settings({ onLogout }: SettingsProps) {
+  const { user, session, email, displayName } = useAuth();
+  const [name, setName] = useState(displayName);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
+
+  const [notify, setNotify] = useState(getNotificationsEnabled());
+
+  function handleNotifyChange(value: boolean) {
+    setNotify(value);
+    setNotificationsEnabled(value);
+  }
+
+  useEffect(() => {
+    setName(displayName);
+  }, [displayName]);
+
+  const memberSince = user?.created_at
+    ? new Date(user.created_at).toLocaleDateString("en-GB", {
+        month: "long",
+        year: "numeric",
+      })
+    : "-";
+
+  const lastSignIn = user?.last_sign_in_at
+    ? new Date(user.last_sign_in_at).toLocaleString("en-GB", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
+    : "-";
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setMessage(null);
+
+    const trimmed = name.trim();
+    if (!trimmed) {
+      setMessage({ type: "error", text: "Name cannot be empty." });
+      return;
+    }
+    if (trimmed.length > 60) {
+      setMessage({
+        type: "error",
+        text: "Name must be 60 characters or fewer.",
+      });
+      return;
+    }
+    if (!supabase) {
+      setMessage({ type: "error", text: "Authentication is not configured." });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: { full_name: trimmed },
+      });
+      if (error) {
+        setMessage({
+          type: "error",
+          text: "Could not update your name. Please try again.",
+        });
+        return;
+      }
+      setMessage({ type: "success", text: "Your name has been updated." });
+    } catch {
+      setMessage({
+        type: "error",
+        text: "Could not reach the server. Please try again.",
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="max-w-3xl space-y-6">
       {/* Profile */}
@@ -41,35 +125,70 @@ export function Settings({ onLogout }: SettingsProps) {
         <div className="flex items-center gap-4">
           <Avatar className="h-16 w-16 border-2 border-border">
             <AvatarFallback className="bg-primary/10 text-lg font-semibold text-primary">
-              AD
+              {getInitials(displayName)}
             </AvatarFallback>
           </Avatar>
-          <div>
-            <p className="text-sm font-medium text-foreground">Admin User</p>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-foreground">
+              {displayName}
+            </p>
             <p className="text-xs text-muted-foreground">
-              Fraud Analyst · Member since 2026
+              Member since {memberSince}
             </p>
           </div>
         </div>
-        <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="profile-name">Name</Label>
-            <Input id="profile-name" defaultValue="Admin User" />
+
+        <form onSubmit={handleSave}>
+          <div className="mt-5 grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="profile-name">Name</Label>
+              <Input
+                id="profile-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                maxLength={60}
+                autoComplete="name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="profile-email">Email</Label>
+              <Input
+                id="profile-email"
+                type="email"
+                value={email}
+                readOnly
+                className="text-muted-foreground"
+              />
+              <p className="text-xs text-muted-foreground">
+                Your sign-in email cannot be changed here.
+              </p>
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="profile-email">Email</Label>
-            <Input
-              id="profile-email"
-              type="email"
-              defaultValue="admin@fraudguard.ai"
-            />
+
+          {message && (
+            <p
+              className={
+                message.type === "success"
+                  ? "mt-3 text-xs text-success"
+                  : "mt-3 text-xs text-destructive"
+              }
+              role={message.type === "error" ? "alert" : "status"}
+            >
+              {message.text}
+            </p>
+          )}
+
+          <div className="mt-4 flex justify-end">
+            <Button
+              type="submit"
+              size="sm"
+              disabled={saving || name.trim() === displayName}
+              className="bg-gradient-to-r from-primary to-accent text-white"
+            >
+              {saving ? "Saving..." : "Save Changes"}
+            </Button>
           </div>
-        </div>
-        <div className="mt-4 flex justify-end">
-          <Button size="sm" className="bg-gradient-to-r from-primary to-accent text-white">
-            Save Changes
-          </Button>
-        </div>
+        </form>
       </Card>
 
       {/* Application */}
@@ -96,11 +215,11 @@ export function Settings({ onLogout }: SettingsProps) {
                   Dark Theme
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Use the dark color scheme (recommended).
+                  Dark is currently the only available theme.
                 </p>
               </div>
             </div>
-            <Switch defaultChecked />
+            <Switch checked disabled aria-label="Dark theme" />
           </div>
           <Separator />
           <div className="flex items-center justify-between">
@@ -111,11 +230,15 @@ export function Settings({ onLogout }: SettingsProps) {
                   Notifications
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Get alerted when fraud is detected.
+                  Show an alert when a transaction is flagged as fraud.
                 </p>
               </div>
             </div>
-            <Switch defaultChecked />
+            <Switch
+              checked={notify}
+              onCheckedChange={handleNotifyChange}
+              aria-label="Notifications"
+            />
           </div>
         </div>
       </Card>
@@ -170,24 +293,23 @@ export function Settings({ onLogout }: SettingsProps) {
                 Session Status
               </p>
               <p className="text-xs text-muted-foreground">
-                {isSupabaseConfigured
-                  ? "Authenticated via Supabase"
-                  : "Demo mode — Supabase not configured"}
+                {session ? "Authenticated via Supabase" : "Not signed in"}
               </p>
             </div>
-            <span className="h-2.5 w-2.5 rounded-full bg-success" />
+            <span
+              className={
+                session
+                  ? "h-2.5 w-2.5 rounded-full bg-success"
+                  : "h-2.5 w-2.5 rounded-full bg-destructive"
+              }
+            />
           </div>
           <div className="flex items-center justify-between rounded-lg border border-border bg-card/30 px-4 py-3">
             <div>
               <p className="text-sm font-medium text-foreground">
-                Session Started
+                Last Sign In
               </p>
-              <p className="text-xs text-muted-foreground">
-                {new Date().toLocaleString("en-US", {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                })}
-              </p>
+              <p className="text-xs text-muted-foreground">{lastSignIn}</p>
             </div>
           </div>
         </div>

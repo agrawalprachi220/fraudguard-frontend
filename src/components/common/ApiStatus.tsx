@@ -1,22 +1,9 @@
-import { useEffect, useState, useCallback } from "react";
-import { checkHealth } from "@/services/api";
+import { useApiStatus } from "@/hooks/useApiStatus";
 import { cn } from "@/lib/utils";
 import { Loader2, RefreshCw, Wifi, WifiOff } from "lucide-react";
 
-type Status = "checking" | "connected" | "offline";
-
 export function ApiStatus({ compact = false }: { compact?: boolean }) {
-  const [status, setStatus] = useState<Status>("checking");
-
-  const check = useCallback(async () => {
-    setStatus("checking");
-    const ok = await checkHealth();
-    setStatus(ok ? "connected" : "offline");
-  }, []);
-
-  useEffect(() => {
-    check();
-  }, [check]);
+  const { status, refresh } = useApiStatus();
 
   if (compact) {
     return (
@@ -72,13 +59,13 @@ export function ApiStatus({ compact = false }: { compact?: boolean }) {
             {status === "connected"
               ? "Backend is responding to health checks."
               : status === "offline"
-                ? "Backend is not reachable. Start the Python API server."
-                : "Verifying backend status..."}
+                ? "Backend is not reachable. Please try again in a moment."
+                : "Verifying backend status. The server may take up to a minute to wake up."}
           </p>
         </div>
       </div>
       <button
-        onClick={check}
+        onClick={refresh}
         disabled={status === "checking"}
         className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
       >

@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { analyzeTransaction } from "@/services/predictionService";
 import { savePrediction } from "@/services/predictionStore";
+import { getNotificationsEnabled } from "@/lib/preferences";
+import { toast } from "@/hooks/use-toast";
 import type {
   TransactionInput,
   PredictionResponse,
@@ -30,6 +32,17 @@ export function usePrediction() {
 
       // Show the model result right away
       setState({ loading: false, result, error: null, saveStatus: "idle" });
+
+      // Fraud alert, only when the user has notifications switched on
+      if (result.is_fraud_predicted === 1 && getNotificationsEnabled()) {
+        toast({
+          variant: "destructive",
+          title: "Fraud detected",
+          description: `This transaction was flagged with a fraud probability of ${Math.round(
+            result.fraud_probability * 100
+          )}%.`,
+        });
+      }
 
       // Then save it to Supabase. A failed save must never hide the result.
       const saved = await savePrediction(input, result);

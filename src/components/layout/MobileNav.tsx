@@ -7,7 +7,6 @@ import {
   FileText,
   Settings,
   LogOut,
-  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -16,7 +15,10 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ApiStatus } from "@/components/common/ApiStatus";
+import { useAuth } from "@/hooks/useAuth";
+import { getInitials } from "@/lib/userUtils";
 import type { PageId } from "./Sidebar";
 
 interface MobileNavProps {
@@ -44,9 +46,14 @@ export function MobileNav({
   onNavigate,
   onLogout,
 }: MobileNavProps) {
+  const { displayName, email } = useAuth();
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="left" className="w-72 border-r border-border p-0">
+      <SheetContent
+        side="left"
+        className="flex w-72 flex-col border-r border-border p-0"
+      >
         <SheetHeader className="border-b border-border px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
@@ -59,7 +66,7 @@ export function MobileNav({
             </div>
           </div>
         </SheetHeader>
-        <nav className="flex-1 space-y-1 px-3 py-4">
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const active = activePage === item.id;
@@ -85,6 +92,19 @@ export function MobileNav({
         </nav>
         <div className="space-y-3 border-t border-border px-3 py-4">
           <ApiStatus compact />
+          <div className="flex items-center gap-3 rounded-lg px-2 py-1">
+            <Avatar className="h-9 w-9 border border-border">
+              <AvatarFallback className="bg-primary/10 text-sm font-semibold text-primary">
+                {getInitials(displayName)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1 leading-tight">
+              <p className="truncate text-sm font-medium text-foreground">
+                {displayName}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">{email}</p>
+            </div>
+          </div>
           <button
             onClick={onLogout}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10"
